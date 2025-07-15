@@ -7,6 +7,7 @@ import (
 )
 
 type TrackedJob struct {
+	JobID      string
 	Job        Job //wrap job interface
 	RetryCount int
 	MaxRetries int
