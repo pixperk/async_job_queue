@@ -3,6 +3,9 @@ package job
 import (
 	"fmt"
 	"sync"
+	"time"
+
+	"github.com/pixperk/async_job_queue/retry"
 )
 
 type Job interface {
@@ -47,6 +50,11 @@ func (q *JobQueue) Submit(job Job, maxRetries int) {
 		MaxRetries: maxRetries,
 		Status:     StatusPending,
 		Tracker:    q.tracker,
+		Backoff: retry.ExponentialBackoff{
+			BaseDelay: 500 * time.Millisecond,
+			MaxDelay:  5 * time.Second,
+			Jitter:    true,
+		},
 	}
 
 	q.tracker.Register(jobID)

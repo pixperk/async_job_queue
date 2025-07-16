@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/pixperk/async_job_queue/retry"
 )
 
 type TrackedJob struct {
@@ -14,6 +16,7 @@ type TrackedJob struct {
 	Status     JobStatus
 	LastError  error
 	Tracker    *JobTracker
+	Backoff    retry.BackoffStrategy
 	mu         sync.Mutex
 }
 
@@ -47,8 +50,9 @@ func (t *TrackedJob) ExecuteWithRetry() {
 
 			fmt.Printf("Attempt %d failed: %v\n", attempt, err)
 			if attempt <= t.MaxRetries {
+				delay := t.Backoff.NextDelay(attempt)
 				fmt.Printf("Retrying job (attempt %d)...\n", attempt+1)
-				time.Sleep(500 * time.Millisecond) // backoff delay
+				time.Sleep(delay) // backoff delay
 				continue
 			} else {
 				fmt.Printf("Job permanently failed after %d attempts.\n", attempt-1)
