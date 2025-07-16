@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/pixperk/async_job_queue/job"
@@ -14,7 +17,15 @@ func main() {
 	buffer, workers := 10, 3
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		sig := <-sigChan
+		fmt.Printf("\nReceived signal: %s. Shutting down gracefully...\n", sig)
+		cancel() // Broadcast shutdown to all workers
+	}()
 
 	q := job.NewJobQueue(ctx, buffer, workers)
 

@@ -46,8 +46,10 @@ func (t *TrackedJob) ExecuteWithRetry(ctx context.Context) {
 			attemptTimeout = 5 * time.Second // default fallback
 		}
 		attemptCtx, cancel := context.WithTimeout(ctx, attemptTimeout)
-		defer cancel()
+
 		err := t.Job.Execute(attemptCtx)
+
+		cancel()
 
 		if err != nil {
 			t.mu.Lock()
