@@ -19,6 +19,7 @@ type TrackedJob struct {
 	LastError  error
 	Tracker    *JobTracker
 	Backoff    retry.BackoffStrategy
+	Timeout    time.Duration
 	mu         sync.Mutex
 }
 
@@ -31,7 +32,7 @@ const (
 	StatusSuccess JobStatus = "SUCCESS"
 )
 
-func (t *TrackedJob) ExecuteWithRetry() {
+func (t *TrackedJob) ExecuteWithRetry(ctx context.Context) {
 	t.mu.Lock()
 	t.Status = StatusRunning
 	//Update ledger
@@ -39,9 +40,14 @@ func (t *TrackedJob) ExecuteWithRetry() {
 	t.mu.Unlock()
 
 	for attempt := 1; attempt <= t.MaxRetries+1; attempt++ {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		// Derive a child context with timeout for this attempt
+		attemptTimeout := t.Timeout
+		if attemptTimeout == 0 {
+			attemptTimeout = 5 * time.Second // default fallback
+		}
+		attemptCtx, cancel := context.WithTimeout(ctx, attemptTimeout)
 		defer cancel()
-		err := t.Job.Execute(ctx)
+		err := t.Job.Execute(attemptCtx)
 
 		if err != nil {
 			t.mu.Lock()

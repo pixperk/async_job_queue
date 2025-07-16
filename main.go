@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -12,7 +13,10 @@ func main() {
 
 	buffer, workers := 10, 3
 
-	q := job.NewJobQueue(buffer, workers)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	q := job.NewJobQueue(ctx, buffer, workers)
 
 	q.Submit(&job.SleepyJob{Duration: 1 * time.Second}, 0)
 	q.Submit(&job.SleepyJob{Duration: 6 * time.Second}, 0)

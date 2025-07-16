@@ -2,7 +2,6 @@ package job
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -20,7 +19,7 @@ type JobQueue struct {
 	tracker *JobTracker
 }
 
-func NewJobQueue(buffer int, workers int) *JobQueue {
+func NewJobQueue(ctx context.Context, buffer int, workers int) *JobQueue {
 	q := &JobQueue{
 		jobs:    make(chan *TrackedJob, buffer),
 		workers: workers,
@@ -28,13 +27,7 @@ func NewJobQueue(buffer int, workers int) *JobQueue {
 	}
 
 	for i := 0; i < q.workers; i++ {
-		go func(workerID int) {
-			for job := range q.jobs {
-				fmt.Printf("👷 Worker %d picked a job\n", workerID)
-				job.ExecuteWithRetry()
-				q.wg.Done()
-			}
-		}(i + 1)
+		go ProcessJob(ctx, q, i+1)
 	}
 
 	return q
