@@ -1,6 +1,8 @@
 package job
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -37,16 +39,25 @@ func (t *TrackedJob) ExecuteWithRetry() {
 	t.mu.Unlock()
 
 	for attempt := 1; attempt <= t.MaxRetries+1; attempt++ {
-		err := t.Job.Execute()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		err := t.Job.Execute(ctx)
+
 		if err != nil {
-			//track the job
 			t.mu.Lock()
+			//track the job
 			t.LastError = err
 			t.Status = StatusFailed
 			t.RetryCount = attempt
 			//Update ledger
 			t.Tracker.Update(t.JobID, StatusFailed, attempt, err)
 			t.mu.Unlock()
+
+			if errors.Is(err, context.DeadlineExceeded) {
+				fmt.Printf("Job attempt %d timed out\n", attempt)
+			} else {
+				fmt.Printf("Attempt %d failed: %v\n", attempt, err)
+			}
 
 			fmt.Printf("Attempt %d failed: %v\n", attempt, err)
 			if attempt <= t.MaxRetries {

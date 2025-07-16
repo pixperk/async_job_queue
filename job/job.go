@@ -1,6 +1,7 @@
 package job
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -9,7 +10,7 @@ import (
 )
 
 type Job interface {
-	Execute() error
+	Execute(ctx context.Context) error
 }
 
 type JobQueue struct {

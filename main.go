@@ -14,12 +14,8 @@ func main() {
 
 	q := job.NewJobQueue(buffer, workers)
 
-	jobNumber := 5
-
-	for range jobNumber {
-		maxRetries := jobNumber
-		q.Submit(&job.ErroneousJob{ID: 2}, maxRetries)
-	}
+	q.Submit(&job.SleepyJob{Duration: 1 * time.Second}, 0)
+	q.Submit(&job.SleepyJob{Duration: 6 * time.Second}, 0)
 
 	q.Wait()
 	q.Shutdown()
