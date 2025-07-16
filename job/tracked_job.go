@@ -13,6 +13,7 @@ type TrackedJob struct {
 	MaxRetries int
 	Status     JobStatus
 	LastError  error
+	Tracker    *JobTracker
 	mu         sync.Mutex
 }
 
@@ -28,6 +29,8 @@ const (
 func (t *TrackedJob) ExecuteWithRetry() {
 	t.mu.Lock()
 	t.Status = StatusRunning
+	//Update ledger
+	t.Tracker.Update(t.JobID, StatusRunning, 0, nil)
 	t.mu.Unlock()
 
 	for attempt := 1; attempt <= t.MaxRetries+1; attempt++ {
@@ -38,6 +41,8 @@ func (t *TrackedJob) ExecuteWithRetry() {
 			t.LastError = err
 			t.Status = StatusFailed
 			t.RetryCount = attempt
+			//Update ledger
+			t.Tracker.Update(t.JobID, StatusFailed, attempt, err)
 			t.mu.Unlock()
 
 			fmt.Printf("Attempt %d failed: %v\n", attempt, err)
@@ -51,6 +56,8 @@ func (t *TrackedJob) ExecuteWithRetry() {
 			}
 		} else {
 			t.mu.Lock()
+			//Update ledger
+			t.Tracker.Update(t.JobID, StatusSuccess, attempt, nil)
 			t.Status = StatusSuccess
 			t.mu.Unlock()
 

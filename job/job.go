@@ -13,12 +13,14 @@ type JobQueue struct {
 	jobs    chan *TrackedJob
 	workers int
 	wg      sync.WaitGroup
+	tracker *JobTracker
 }
 
 func NewJobQueue(buffer int, workers int) *JobQueue {
 	q := &JobQueue{
 		jobs:    make(chan *TrackedJob, buffer),
 		workers: workers,
+		tracker: NewJobTracker(),
 	}
 
 	for i := 0; i < q.workers; i++ {
@@ -36,11 +38,19 @@ func NewJobQueue(buffer int, workers int) *JobQueue {
 
 func (q *JobQueue) Submit(job Job, maxRetries int) {
 	q.wg.Add(1)
+
+	jobID := GenerateJobID()
+
 	tracked := &TrackedJob{
+		JobID:      jobID,
 		Job:        job,
 		MaxRetries: maxRetries,
 		Status:     StatusPending,
+		Tracker:    q.tracker,
 	}
+
+	q.tracker.Register(jobID)
+
 	q.jobs <- tracked
 }
 
@@ -50,6 +60,10 @@ func (q *JobQueue) Wait() {
 
 func (q *JobQueue) Shutdown() {
 	close(q.jobs)
+}
+
+func (q *JobQueue) StoreStatus() {
+	q.tracker.PrintAll()
 }
 
 func (t *TrackedJob) StatusString() string {

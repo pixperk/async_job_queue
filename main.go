@@ -24,5 +24,6 @@ func main() {
 	q.Wait()
 	q.Shutdown()
 
+	q.StoreStatus()
 	fmt.Printf("\nTotal execution time: %.2fs\n", time.Since(start).Seconds())
 }
