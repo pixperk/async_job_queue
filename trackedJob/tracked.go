@@ -27,7 +27,6 @@ type TrackedJob struct {
 	Status     JobStatus             `json:"status"`
 	Metadata   map[string]string     `json:"metadata"`
 	LastError  string                `json:"last_error"`
-	Tracker    *JobTracker           `json:"-"`
 	Backoff    retry.BackoffStrategy `json:"-"`
 	Timeout    time.Duration
 	mu         sync.Mutex `json:"-"`

@@ -15,7 +15,6 @@ type JobQueue struct {
 	jobs      chan *trackedjob.TrackedJob
 	workers   int
 	wg        sync.WaitGroup
-	tracker   *trackedjob.JobTracker
 	persister persister.JobPersister
 }
 
@@ -23,7 +22,6 @@ func NewJobQueue(ctx context.Context, buffer int, workers int, persister persist
 	q := &JobQueue{
 		jobs:      make(chan *trackedjob.TrackedJob, buffer),
 		workers:   workers,
-		tracker:   trackedjob.NewJobTracker(),
 		persister: persister,
 	}
 
@@ -35,9 +33,6 @@ func NewJobQueue(ctx context.Context, buffer int, workers int, persister persist
 }
 
 func (q *JobQueue) handleStatusUpdate(jobID string, status trackedjob.JobStatus, retry int, err error) {
-	if q.tracker != nil {
-		q.tracker.Update(jobID, status, retry, err)
-	}
 
 	if q.persister != nil {
 		saveErr := q.persister.UpdateStatus(jobID, status, retry, err)
@@ -68,16 +63,12 @@ func (q *JobQueue) Submit(job trackedjob.Job, opts SubmitOptions) {
 		Status:         trackedjob.StatusPending,
 		Metadata:       opts.Metadata,
 		OnStatusUpdate: q.handleStatusUpdate,
-		Tracker:        q.tracker,
 		Backoff: retry.ExponentialBackoff{
 			BaseDelay: 500 * time.Millisecond,
 			MaxDelay:  5 * time.Second,
 			Jitter:    true,
 		},
 	}
-
-	q.tracker.Register(jobID)
-
 	//persist the job
 
 	if q.persister != nil {
@@ -106,7 +97,6 @@ func (q *JobQueue) LoadPersistedJobs(factory *JobFactory) {
 		}
 		j.Job = rehydratedJob
 		j.OnStatusUpdate = q.handleStatusUpdate
-		j.Tracker = q.tracker
 		j.Backoff = retry.ExponentialBackoff{
 			BaseDelay: 500 * time.Millisecond,
 			MaxDelay:  5 * time.Second,
@@ -131,8 +121,4 @@ func (q *JobQueue) Wait() {
 
 func (q *JobQueue) Shutdown() {
 	close(q.jobs)
-}
-
-func (q *JobQueue) StoreStatus() {
-	q.tracker.PrintAll()
 }

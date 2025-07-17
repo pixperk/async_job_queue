@@ -44,18 +44,17 @@ func main() {
 
 	q.LoadPersistedJobs(jobFactory)
 
-	/* q.Submit(&job.SleepyJob{Duration: 1 * time.Second}, job.SubmitOptions{
+	q.Submit(&job.SleepyJob{Duration: 1 * time.Second}, job.SubmitOptions{
 		MaxRetries: 2,
 		Timeout:    4 * time.Second,
 	})
 	q.Submit(&job.SleepyJob{Duration: 6 * time.Second}, job.SubmitOptions{
 		MaxRetries: 0,
 		Timeout:    10 * time.Second, // Give enough time for the 6-second job
-	}) */
+	})
 
 	q.Wait()
 	q.Shutdown()
 
-	q.StoreStatus()
 	fmt.Printf("\nTotal execution time: %.2fs\n", time.Since(start).Seconds())
 }
