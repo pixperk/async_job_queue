@@ -5,25 +5,24 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pixperk/async_job_queue/persister"
 	"github.com/pixperk/async_job_queue/retry"
+	trackedjob "github.com/pixperk/async_job_queue/trackedJob"
 )
 
-type Job interface {
-	Execute(ctx context.Context) error
-}
-
 type JobQueue struct {
-	jobs    chan *TrackedJob
-	workers int
-	wg      sync.WaitGroup
-	tracker *JobTracker
+	jobs      chan *trackedjob.TrackedJob
+	workers   int
+	wg        sync.WaitGroup
+	tracker   *trackedjob.JobTracker
+	persister persister.JobPersister
 }
 
 func NewJobQueue(ctx context.Context, buffer int, workers int) *JobQueue {
 	q := &JobQueue{
-		jobs:    make(chan *TrackedJob, buffer),
+		jobs:    make(chan *trackedjob.TrackedJob, buffer),
 		workers: workers,
-		tracker: NewJobTracker(),
+		tracker: trackedjob.NewJobTracker(),
 	}
 
 	for i := 0; i < q.workers; i++ {
@@ -33,17 +32,17 @@ func NewJobQueue(ctx context.Context, buffer int, workers int) *JobQueue {
 	return q
 }
 
-func (q *JobQueue) Submit(job Job, opts SubmitOptions) {
+func (q *JobQueue) Submit(job trackedjob.Job, opts SubmitOptions) {
 	q.wg.Add(1)
 
 	jobID := GenerateJobID()
 
-	tracked := &TrackedJob{
+	tracked := &trackedjob.TrackedJob{
 		JobID:      jobID,
 		Job:        job,
 		MaxRetries: opts.MaxRetries,
 		Timeout:    opts.Timeout,
-		Status:     StatusPending,
+		Status:     trackedjob.StatusPending,
 		Metadata:   opts.Metadata,
 		Tracker:    q.tracker,
 		Backoff: retry.ExponentialBackoff{
@@ -74,10 +73,4 @@ func (q *JobQueue) Shutdown() {
 
 func (q *JobQueue) StoreStatus() {
 	q.tracker.PrintAll()
-}
-
-func (t *TrackedJob) StatusString() string {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return string(t.Status)
 }

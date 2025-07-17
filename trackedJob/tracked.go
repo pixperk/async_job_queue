@@ -1,4 +1,4 @@
-package job
+package trackedjob
 
 import (
 	"context"
@@ -9,6 +9,10 @@ import (
 
 	"github.com/pixperk/async_job_queue/retry"
 )
+
+type Job interface {
+	Execute(ctx context.Context) error
+}
 
 type TrackedJob struct {
 	JobID      string
@@ -89,4 +93,10 @@ func (t *TrackedJob) ExecuteWithRetry(ctx context.Context) {
 			return
 		}
 	}
+}
+
+func (t *TrackedJob) StatusString() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return string(t.Status)
 }

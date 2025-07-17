@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/pixperk/async_job_queue/job"
+	trackedjob "github.com/pixperk/async_job_queue/trackedJob"
 )
 
 type JSONPersister struct {
@@ -23,7 +23,7 @@ func NewJSONPersister(dir string) *JSONPersister {
 	return &JSONPersister{dir: dir}
 }
 
-func (p *JSONPersister) SaveJob(job *job.TrackedJob) error {
+func (p *JSONPersister) SaveJob(job *trackedjob.TrackedJob) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -41,7 +41,7 @@ func (p *JSONPersister) SaveJob(job *job.TrackedJob) error {
 	return nil
 }
 
-func (p *JSONPersister) UpdateStatus(jobID string, status job.JobStatus, retry int, lastErr error) error {
+func (p *JSONPersister) UpdateStatus(jobID string, status trackedjob.JobStatus, retry int, lastErr error) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	filePath := filepath.Join(p.dir, fmt.Sprintf("%s.json", jobID))
@@ -51,7 +51,7 @@ func (p *JSONPersister) UpdateStatus(jobID string, status job.JobStatus, retry i
 		return fmt.Errorf("couldn't read job file: %w", err)
 	}
 
-	var j job.TrackedJob
+	var j trackedjob.TrackedJob
 	if err := json.Unmarshal(data, &j); err != nil {
 		return fmt.Errorf("unmarshal error: %w", err)
 	}
@@ -63,14 +63,14 @@ func (p *JSONPersister) UpdateStatus(jobID string, status job.JobStatus, retry i
 	return p.SaveJob(&j)
 }
 
-func (p *JSONPersister) LoadPendingJobs() ([]*job.TrackedJob, error) {
+func (p *JSONPersister) LoadPendingJobs() ([]*trackedjob.TrackedJob, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	var jobs []*job.TrackedJob
+	var jobs []*trackedjob.TrackedJob
 
 	files, err := os.ReadDir(p.dir)
 	if err != nil {
@@ -88,12 +88,12 @@ func (p *JSONPersister) LoadPendingJobs() ([]*job.TrackedJob, error) {
 			continue // skip corrupted files
 		}
 
-		var j job.TrackedJob
+		var j trackedjob.TrackedJob
 		if err := json.Unmarshal(data, &j); err != nil {
 			continue
 		}
 
-		if j.Status == job.StatusPending || j.Status == job.StatusFailed {
+		if j.Status == trackedjob.StatusPending || j.Status == trackedjob.StatusFailed {
 			jobs = append(jobs, &j)
 		}
 

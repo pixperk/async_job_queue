@@ -1,9 +1,11 @@
 package persister
 
-import "github.com/pixperk/async_job_queue/job"
+import (
+	trackedjob "github.com/pixperk/async_job_queue/trackedJob"
+)
 
-type jobPersister interface {
-	SaveJob(job *job.TrackedJob) error
-	UpdateStatus(jobID string, status job.JobStatus, retry int, err error) error
-	LoadPendingJobs() ([]*job.TrackedJob, error)
+type JobPersister interface {
+	SaveJob(job *trackedjob.TrackedJob) error
+	UpdateStatus(jobID string, status trackedjob.JobStatus, retry int, err error) error
+	LoadPendingJobs() ([]*trackedjob.TrackedJob, error)
 }
