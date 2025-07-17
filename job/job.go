@@ -33,7 +33,7 @@ func NewJobQueue(ctx context.Context, buffer int, workers int) *JobQueue {
 	return q
 }
 
-func (q *JobQueue) Submit(job Job, maxRetries int) {
+func (q *JobQueue) Submit(job Job, opts SubmitOptions) {
 	q.wg.Add(1)
 
 	jobID := GenerateJobID()
@@ -41,8 +41,10 @@ func (q *JobQueue) Submit(job Job, maxRetries int) {
 	tracked := &TrackedJob{
 		JobID:      jobID,
 		Job:        job,
-		MaxRetries: maxRetries,
+		MaxRetries: opts.MaxRetries,
+		Timeout:    opts.Timeout,
 		Status:     StatusPending,
+		Metadata:   opts.Metadata,
 		Tracker:    q.tracker,
 		Backoff: retry.ExponentialBackoff{
 			BaseDelay: 500 * time.Millisecond,
@@ -54,6 +56,12 @@ func (q *JobQueue) Submit(job Job, maxRetries int) {
 	q.tracker.Register(jobID)
 
 	q.jobs <- tracked
+}
+
+type SubmitOptions struct {
+	MaxRetries int
+	Timeout    time.Duration
+	Metadata   map[string]string
 }
 
 func (q *JobQueue) Wait() {

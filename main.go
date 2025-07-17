@@ -29,8 +29,13 @@ func main() {
 
 	q := job.NewJobQueue(ctx, buffer, workers)
 
-	q.Submit(&job.SleepyJob{Duration: 1 * time.Second}, 0)
-	q.Submit(&job.SleepyJob{Duration: 6 * time.Second}, 0)
+	q.Submit(&job.SleepyJob{Duration: 1 * time.Second}, job.SubmitOptions{
+		MaxRetries: 2,
+		Timeout:    4 * time.Second,
+	})
+	q.Submit(&job.SleepyJob{Duration: 6 * time.Second}, job.SubmitOptions{
+		MaxRetries: 0,
+	})
 
 	q.Wait()
 	q.Shutdown()

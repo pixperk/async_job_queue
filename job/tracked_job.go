@@ -16,6 +16,7 @@ type TrackedJob struct {
 	RetryCount int
 	MaxRetries int
 	Status     JobStatus
+	Metadata   map[string]string
 	LastError  error
 	Tracker    *JobTracker
 	Backoff    retry.BackoffStrategy
