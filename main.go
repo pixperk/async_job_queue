@@ -30,7 +30,10 @@ func main() {
 		cancel() // Broadcast shutdown to all workers
 	}()
 
-	persister := persister.NewJSONPersister("saved_jobs")
+	persister, err := persister.NewSQLitePersister("./saved_jobs/jobs.db")
+	if err != nil {
+		panic(err)
+	}
 	jobFactory := job.NewJobFactory()
 	jobFactory.Register("SleepyJob", func(config json.RawMessage) (trackedjob.Job, error) {
 		var sj job.SleepyJob
@@ -44,14 +47,14 @@ func main() {
 
 	q.LoadPersistedJobs(jobFactory)
 
-	q.Submit(&job.SleepyJob{Duration: 1 * time.Second}, job.SubmitOptions{
+	/* q.Submit(&job.SleepyJob{Duration: 1 * time.Second}, job.SubmitOptions{
 		MaxRetries: 2,
 		Timeout:    4 * time.Second,
 	})
 	q.Submit(&job.SleepyJob{Duration: 6 * time.Second}, job.SubmitOptions{
 		MaxRetries: 0,
 		Timeout:    10 * time.Second, // Give enough time for the 6-second job
-	})
+	}) */
 
 	q.Wait()
 	q.Shutdown()
