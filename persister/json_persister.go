@@ -27,18 +27,7 @@ func (p *JSONPersister) SaveJob(job *trackedjob.TrackedJob) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	filePath := filepath.Join(p.dir, fmt.Sprintf("%s.json", job.JobID))
-
-	data, err := json.MarshalIndent(job, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal job: %w", err)
-	}
-
-	if err := os.WriteFile(filePath, data, 0644); err != nil {
-		return fmt.Errorf("failed to write job file: %w", err)
-	}
-
-	return nil
+	return p.saveJob(job)
 }
 
 func (p *JSONPersister) UpdateStatus(jobID string, status trackedjob.JobStatus, retry int, lastErr error) error {
@@ -58,15 +47,31 @@ func (p *JSONPersister) UpdateStatus(jobID string, status trackedjob.JobStatus, 
 
 	j.Status = status
 	j.RetryCount = retry
-	j.LastError = lastErr
+	if lastErr != nil {
+		j.LastError = lastErr.Error()
+	} else {
+		j.LastError = ""
+	}
 
-	return p.SaveJob(&j)
+	return p.saveJob(&j)
+}
+
+func (p *JSONPersister) saveJob(job *trackedjob.TrackedJob) error {
+	filePath := filepath.Join(p.dir, fmt.Sprintf("%s.json", job.JobID))
+
+	data, err := json.MarshalIndent(job, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal job: %w", err)
+	}
+
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write job file: %w", err)
+	}
+
+	return nil
 }
 
 func (p *JSONPersister) LoadPendingJobs() ([]*trackedjob.TrackedJob, error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	p.mu.Lock()
 	defer p.mu.Unlock()
 

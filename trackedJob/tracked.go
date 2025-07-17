@@ -2,6 +2,7 @@ package trackedjob
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -12,20 +13,26 @@ import (
 
 type Job interface {
 	Execute(ctx context.Context) error
+	TypeName() string
+	Serialize() (json.RawMessage, error)
 }
 
 type TrackedJob struct {
-	JobID      string
-	Job        Job //wrap job interface
-	RetryCount int
-	MaxRetries int
-	Status     JobStatus
-	Metadata   map[string]string
-	LastError  error
-	Tracker    *JobTracker
-	Backoff    retry.BackoffStrategy
+	JobID      string                `json:"job_id"`
+	JobType    string                `json:"job_type"`
+	JobData    json.RawMessage       `json:"job_data"`
+	Job        Job                   `json:"-"`
+	RetryCount int                   `json:"retry_count"`
+	MaxRetries int                   `json:"max_retries"`
+	Status     JobStatus             `json:"status"`
+	Metadata   map[string]string     `json:"metadata"`
+	LastError  string                `json:"last_error"`
+	Tracker    *JobTracker           `json:"-"`
+	Backoff    retry.BackoffStrategy `json:"-"`
 	Timeout    time.Duration
-	mu         sync.Mutex
+	mu         sync.Mutex `json:"-"`
+
+	OnStatusUpdate func(jobID string, status JobStatus, retry int, err error) `json:"-"`
 }
 
 type JobStatus string
@@ -38,11 +45,7 @@ const (
 )
 
 func (t *TrackedJob) ExecuteWithRetry(ctx context.Context) {
-	t.mu.Lock()
-	t.Status = StatusRunning
-	//Update ledger
-	t.Tracker.Update(t.JobID, StatusRunning, 0, nil)
-	t.mu.Unlock()
+	t.updateStatus(StatusRunning, 0, nil)
 
 	for attempt := 1; attempt <= t.MaxRetries+1; attempt++ {
 		// Derive a child context with timeout for this attempt
@@ -57,14 +60,7 @@ func (t *TrackedJob) ExecuteWithRetry(ctx context.Context) {
 		cancel()
 
 		if err != nil {
-			t.mu.Lock()
-			//track the job
-			t.LastError = err
-			t.Status = StatusFailed
-			t.RetryCount = attempt
-			//Update ledger
-			t.Tracker.Update(t.JobID, StatusFailed, attempt, err)
-			t.mu.Unlock()
+			t.updateStatus(StatusFailed, attempt, err)
 
 			if errors.Is(err, context.DeadlineExceeded) {
 				fmt.Printf("Job attempt %d timed out\n", attempt)
@@ -83,15 +79,26 @@ func (t *TrackedJob) ExecuteWithRetry(ctx context.Context) {
 				return
 			}
 		} else {
-			t.mu.Lock()
-			//Update ledger
-			t.Tracker.Update(t.JobID, StatusSuccess, attempt, nil)
-			t.Status = StatusSuccess
-			t.mu.Unlock()
-
+			t.updateStatus(StatusSuccess, attempt, nil)
 			fmt.Printf("✅ Job succeeded on attempt %d\n", attempt)
 			return
 		}
+	}
+}
+
+func (t *TrackedJob) updateStatus(status JobStatus, attempt int, err error) {
+	t.mu.Lock()
+	t.Status = status
+	t.RetryCount = attempt
+	if err != nil {
+		t.LastError = err.Error()
+	} else {
+		t.LastError = ""
+	}
+	t.mu.Unlock()
+
+	if t.OnStatusUpdate != nil {
+		t.OnStatusUpdate(t.JobID, status, attempt, err)
 	}
 }
 

@@ -2,6 +2,7 @@ package job
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -18,4 +19,12 @@ func (j *SleepyJob) Execute(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err() // return context.Canceled or context.DeadlineExceeded
 	}
+}
+
+func (j *SleepyJob) TypeName() string {
+	return "SleepyJob"
+}
+
+func (j *SleepyJob) Serialize() (json.RawMessage, error) {
+	return json.Marshal(j)
 }
